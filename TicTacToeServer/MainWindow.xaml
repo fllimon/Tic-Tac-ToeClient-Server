@@ -1,0 +1,51 @@
+﻿<mah:MetroWindow  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls" x:Class="TicTacToeServer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TicTacToeServer"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        mc:Ignorable="d"
+        Title="Tic-Tac-Toe Server" Height="600" Width="600">
+    <Window.Resources>
+        <local:BorderVisibilityConvertor x:Key="_brdConverter"/>
+    </Window.Resources>
+    <Grid Background="DarkCyan">
+
+        <Grid VerticalAlignment="Center" 
+              HorizontalAlignment="Center">
+            <StackPanel Orientation="Vertical">
+                <Button x:Name="_startServer" Content="Start"
+                            FontSize="25"
+                            Height="80"
+                            Width="180"
+                            Style="{DynamicResource MahApps.Styles.Button}"
+                            Command="{Binding Press}"/>
+            </StackPanel>
+
+        </Grid>
+        <Border x:Name="_serverState" Background="#8000"
+                Visibility="{Binding IsPending, Converter={StaticResource _brdConverter}}">
+            <Grid>
+                <TextBlock Text="{Binding AcceptText}"
+                       Foreground="Yellow"
+                       FontSize="40"
+                       FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Bottom">
+                    <Button Content="Exit"
+                            FontSize="25"
+                            Style="{DynamicResource MahApps.Styles.Button}"
+                            Margin="20"
+                            Command="{Binding Exit}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</mah:MetroWindow>
