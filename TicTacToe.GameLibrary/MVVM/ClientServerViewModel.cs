@@ -1,9 +1,9 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace TicTacToeServer.MVVM.ViewModel
+namespace TicTacToe.GameLibrary.MVVM.ViewModel
 {
-    class ServerViewModel : INotifyPropertyChanged
+    public class ClientServerViewModel : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 

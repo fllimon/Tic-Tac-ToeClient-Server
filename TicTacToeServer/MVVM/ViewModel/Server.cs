@@ -1,37 +1,51 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Controls;
 using System.Windows.Input;
+using TicTacToe.GameLibrary.Command;
+using TicTacToe.GameLibrary.MVVM.Model;
+using TicTacToe.GameLibrary.MVVM.ViewModel;
+using TicTacToe.GameLibrary.Command;
+using System.Threading.Tasks;
+using TicTacToe.GameLibrary.MVVM;
 
 namespace TicTacToeServer.MVVM.ViewModel
 {
-    class Server : ServerViewModel
+    class Server : ClientServerViewModel
     {
-        private const int SERVER_PORT = 24000;
         private bool _isPending = false;
-        private string _acceptText = string.Empty;
+        private string _acceptText = "Server started... Avaliable connections!";
+        private const int SERVER_PORT = 24000;
         private TcpListener _serverSocket;
+        private static List<TcpClient> _tcpClients = null;
+        private Player _onePlayer = null;
+        private Player _twoPlayer = null;
+        private GameField _gameField = null;
 
         public Server()
         {
-
+            _tcpClients = new List<TcpClient>();
+            
             Press = new Command(o =>
             {
                 IsPending = true;
+
                 StartServer();
             });
 
 
             Exit = new Command(o =>
             {
+                _serverSocket.Stop();
+
+                _tcpClients.RemoveRange(0, _tcpClients.Count);
+
                 Environment.Exit(0);
             });
-
         }
 
         public bool IsPending 
@@ -65,48 +79,84 @@ namespace TicTacToeServer.MVVM.ViewModel
         public ICommand Press { get; set; }
 
         public ICommand Exit { get; set; }
-       
-        public async  void StartServer()
+
+        public async Task StartServer()
         {
             IPAddress ip = IPAddress.Any;
             _serverSocket = new TcpListener(ip, SERVER_PORT);
-            _serverSocket.Start();
 
             try
             {
+                _serverSocket.Start();
+                TcpClient returnedClient = null;
 
-                TcpClient client = await _serverSocket.AcceptTcpClientAsync();
-                AcceptText = $"Client Connected: {client.Client.RemoteEndPoint}";
-
-                byte[] buff = new byte[1024];
-
-                int numberReciveBytes = 0;
-
-                while (true)
+                while(true)
                 {
-                    if (client.Connected)
-                    {
-                        numberReciveBytes = client.Receive(buff);
+                    returnedClient = await _serverSocket.AcceptTcpClientAsync();
 
-                        if (numberReciveBytes > 0)
-                        {
-                            AcceptText = Encoding.UTF8.GetString(buff, 0, numberReciveBytes);
-                        }
-
-                        client.Send(buff);
-                        Array.Clear(buff, 0, buff.Length);
-                        numberReciveBytes = 0;
-                    }
-                    else
+                    if (returnedClient != null)
                     {
-                        client.Close();
-                        break;
+                        AcceptText = string.Format($"Client connected! {returnedClient.Client.RemoteEndPoint}");
+                        _tcpClients.Add(returnedClient);
                     }
-                }
+
+                    InitGameField();
+
+                    ReadDataFromClient(returnedClient);
+
+                    if (_gameField != null)
+                    {
+                        AcceptText = string.Format($"Init: {_gameField.Markers.Count}");
+
+                        SendToClient(_gameField.Markers, returnedClient);
+                    }
+                } 
             }
             catch (SocketException ex)
             {
                 throw;
+            }
+        }
+
+        private async Task ReadDataFromClient(TcpClient client)
+        {
+            AcceptText = await JsonSerializer.DeserializeAsync<string>(client.GetStream());
+        }
+
+        private async Task SendToClient(object data, TcpClient client)
+        {
+            if (_tcpClients.Count == 0)
+            {
+                return;
+            }
+
+            if (data == null)
+            {
+                return;
+            }
+
+            await JsonSerializer.SerializeAsync(client.GetStream(), data);
+        }
+
+        private void RemoveClient(TcpClient client)
+        {
+            if (_tcpClients.Contains(client))
+            {
+                _tcpClients.Remove(client);
+            }
+        }
+
+        private void InitGameField()
+        {
+            if (_tcpClients.Count > 0)
+            {
+                _onePlayer = new Player();
+                _twoPlayer = new Player();
+
+                if (_gameField == null)
+                {
+                    _gameField = new GameField(_onePlayer, _twoPlayer);
+                }
             }
         }
 

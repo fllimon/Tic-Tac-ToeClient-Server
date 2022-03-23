@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using TicTacToeClient.MVVM.ViewModel;
 
 namespace TicTacToeClient
 {
@@ -20,9 +21,18 @@ namespace TicTacToeClient
     /// </summary>
     public partial class MainWindow : Window
     {
+        private Client _client = null;
         public MainWindow()
         {
             InitializeComponent();
+
+            _client = new Client();
+            DataContext = _client;
+        }
+
+        private void StartServerClick(object sender, RoutedEventArgs e)
+        {
+            _startServer.Visibility = Visibility.Hidden;
         }
     }
 }
