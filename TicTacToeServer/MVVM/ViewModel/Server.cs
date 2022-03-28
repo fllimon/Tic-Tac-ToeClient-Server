@@ -9,27 +9,38 @@ using System.Windows.Input;
 using TicTacToe.GameLibrary.Command;
 using TicTacToe.GameLibrary.MVVM.Model;
 using TicTacToe.GameLibrary.MVVM.ViewModel;
-using TicTacToe.GameLibrary.Command;
 using System.Threading.Tasks;
 using TicTacToe.GameLibrary.MVVM;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Text;
+using System.Xml.Serialization;
+using System.Collections.ObjectModel;
 
 namespace TicTacToeServer.MVVM.ViewModel
 {
     class Server : ClientServerViewModel
     {
+        private const string DEFAULT_FILE_LOG = "../../log.txt";
+
         private bool _isPending = false;
         private string _acceptText = "Server started... Avaliable connections!";
         private const int SERVER_PORT = 24000;
         private TcpListener _serverSocket;
-        private static List<TcpClient> _tcpClients = null;
-        private Player _onePlayer = null;
-        private Player _twoPlayer = null;
+        private int _count = 0;
+        private List<TcpClient> _tcpClients = null;
+        private Player _firstPlayer = null;
+        private Player _secondPlayer = null;
         private GameField _gameField = null;
+        private char[] _buffer = null;
 
         public Server()
         {
             _tcpClients = new List<TcpClient>();
-            
+            _firstPlayer = new Player();
+            _secondPlayer = new Player();
+            _buffer = new char[1024];
+
             Press = new Command(o =>
             {
                 IsPending = true;
@@ -62,6 +73,20 @@ namespace TicTacToeServer.MVVM.ViewModel
             }
         }
 
+        public int PlayerCount
+        {
+            get
+            {
+                return _count;
+            }
+            set
+            {
+                _count = value;
+
+                OnPropertyChanged();
+            }
+        }
+
         public string AcceptText
         {
             get
@@ -88,29 +113,26 @@ namespace TicTacToeServer.MVVM.ViewModel
             try
             {
                 _serverSocket.Start();
-                TcpClient returnedClient = null;
-
-                while(true)
+                while (true)
                 {
-                    returnedClient = await _serverSocket.AcceptTcpClientAsync();
+                    var returnedClient = await _serverSocket.AcceptTcpClientAsync();
+                    _tcpClients.Add(returnedClient);
+                    PlayerCount = _tcpClients.Count;
 
-                    if (returnedClient != null)
+
+
+                    if (_tcpClients.Count == 1)
                     {
-                        AcceptText = string.Format($"Client connected! {returnedClient.Client.RemoteEndPoint}");
-                        _tcpClients.Add(returnedClient);
+                        ReadPlayerData(returnedClient, _firstPlayer);
                     }
 
                     InitGameField();
 
-                    ReadDataFromClient(returnedClient);
-
                     if (_gameField != null)
                     {
-                        AcceptText = string.Format($"Init: {_gameField.Markers.Count}");
-
-                        SendToClient(_gameField.Markers, returnedClient);
+                        SendGameFieldToServer(returnedClient, _gameField.Markers);
                     }
-                } 
+                }
             }
             catch (SocketException ex)
             {
@@ -118,18 +140,8 @@ namespace TicTacToeServer.MVVM.ViewModel
             }
         }
 
-        private async Task ReadDataFromClient(TcpClient client)
+        public async Task WriteData(TcpClient client, object data)
         {
-            AcceptText = await JsonSerializer.DeserializeAsync<string>(client.GetStream());
-        }
-
-        private async Task SendToClient(object data, TcpClient client)
-        {
-            if (_tcpClients.Count == 0)
-            {
-                return;
-            }
-
             if (data == null)
             {
                 return;
@@ -138,11 +150,39 @@ namespace TicTacToeServer.MVVM.ViewModel
             await JsonSerializer.SerializeAsync(client.GetStream(), data);
         }
 
-        private void RemoveClient(TcpClient client)
+        private async Task SendGameFieldToServer(TcpClient client, ObservableCollection<Marker> data)
         {
-            if (_tcpClients.Contains(client))
+            if (data == null)
             {
-                _tcpClients.Remove(client);
+                return;
+            }
+
+            await JsonSerializer.SerializeAsync(client.GetStream(), data);
+        }
+
+        public async Task ReadPlayerData(TcpClient client, Player player)
+        {
+            StreamReader reader = new StreamReader(client.GetStream());
+           
+            while (true)
+            {
+                int count = await reader.ReadAsync(_buffer, 0, _buffer.Length);
+
+                if (count == 0)
+                {
+                    client.Close();
+
+                    break;
+                }
+
+                string data = new string(_buffer,0, count);
+
+                player = JsonSerializer.Deserialize<Player>(data);
+
+                WriteLog(string.Format($"{player.Name} - {player.PlayerType}"));
+
+                AcceptText = player.ToString();
+                Array.Clear(_buffer, 0, count);
             }
         }
 
@@ -150,15 +190,26 @@ namespace TicTacToeServer.MVVM.ViewModel
         {
             if (_tcpClients.Count > 0)
             {
-                _onePlayer = new Player();
-                _twoPlayer = new Player();
+                _firstPlayer = new Player();
+                _secondPlayer = new Player();
+                _secondPlayer.PlayerType = PlayerData.X;
+                _secondPlayer.PlayerStatus = PlayerStatus.Await;
 
                 if (_gameField == null)
                 {
-                    _gameField = new GameField(_onePlayer, _twoPlayer);
+                    _gameField = new GameField(_firstPlayer, _secondPlayer);
                 }
             }
         }
 
+        public void WriteLog(string data)
+        {
+            FileStream fs = new FileStream(DEFAULT_FILE_LOG, FileMode.OpenOrCreate);
+
+            using (StreamWriter wr = new StreamWriter(fs))
+            {
+                wr.WriteLine(data);
+            }
+        }
     }
 }

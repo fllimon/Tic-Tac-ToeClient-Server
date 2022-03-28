@@ -30,9 +30,19 @@
         <Border x:Name="_serverState" Background="#8000"
                 Visibility="{Binding IsPending, Converter={StaticResource _brdConverter}}">
             <Grid>
+                <StackPanel>
+                    <Label 
+                        Content="{Binding PlayerCount}"
+                        Width="150"
+                        Height="70"
+                        FontSize="50"
+                        Margin="-400,20,0,0">
+                    
+                    </Label>
+                </StackPanel>
                 <TextBlock Text="{Binding AcceptText}"
                        Foreground="Yellow"
-                       FontSize="40"
+                       FontSize="20"
                        FontWeight="Bold"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"/>

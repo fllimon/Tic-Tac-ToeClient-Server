@@ -41,7 +41,7 @@ namespace TicTacToe.GameLibrary.MVVM.Model
             {
                 return _x * 170;
             }
-            private set
+            set
             {
                 _x = value;
             }
@@ -53,7 +53,7 @@ namespace TicTacToe.GameLibrary.MVVM.Model
             {
                 return _y * 170;
             }
-            private set
+            set
             {
                 _y = value;
             }
