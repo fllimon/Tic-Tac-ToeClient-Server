@@ -76,7 +76,7 @@ namespace TicTacToe.GameLibrary.MVVM
             {
                 for (int j = 0; j < DEFAULT_HEIGHT; j++)
                 {
-                    _markers.Add(new Marker(i, j, PlayerData.Empty));
+                    _markers.Add(new Marker(i * 170, j * 170, PlayerData.Empty));
                 }
             }
 

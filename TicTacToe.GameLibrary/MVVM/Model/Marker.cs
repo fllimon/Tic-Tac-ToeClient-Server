@@ -21,25 +21,11 @@ namespace TicTacToe.GameLibrary.MVVM.Model
             _playerMarker = data;
         }
 
-        public PlayerData PlayerMarker
-        {
-            get
-            {
-                return _playerMarker;
-            }
-            set
-            {
-                _playerMarker = value;
-
-                OnPropertyChanged(nameof(PlayerMarker));
-            }
-        }
-
         public int X
         {
             get
             {
-                return _x * 170;
+                return _x;
             }
             set
             {
@@ -51,11 +37,25 @@ namespace TicTacToe.GameLibrary.MVVM.Model
         {
             get
             {
-                return _y * 170;
+                return _y;
             }
             set
             {
                 _y = value;
+            }
+        }
+
+        public PlayerData PlayerMarker
+        {
+            get
+            {
+                return _playerMarker;
+            }
+            set
+            {
+                _playerMarker = value;
+
+                OnPropertyChanged(nameof(PlayerMarker));
             }
         }
     }
