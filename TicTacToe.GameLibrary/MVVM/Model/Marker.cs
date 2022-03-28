@@ -7,6 +7,7 @@ using TicTacToe.GameLibrary.MVVM.ViewModel;
 
 namespace TicTacToe.GameLibrary.MVVM.Model
 {
+    [Serializable]
     public class Marker : ClientServerViewModel
     {
         private int _x;

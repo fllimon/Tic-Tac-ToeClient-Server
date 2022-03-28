@@ -8,6 +8,7 @@ using TicTacToe.GameLibrary.MVVM.ViewModel;
 
 namespace TicTacToe.GameLibrary.MVVM.Model
 {
+    [Serializable]
     public class Player : ClientServerViewModel
     {
         private PlayerStatus _status;
