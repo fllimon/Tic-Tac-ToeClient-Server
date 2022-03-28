@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Windows.Input;
@@ -11,10 +10,6 @@ using TicTacToe.GameLibrary.MVVM.Model;
 using TicTacToe.GameLibrary.MVVM.ViewModel;
 using System.Threading.Tasks;
 using TicTacToe.GameLibrary.MVVM;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
-using System.Xml.Serialization;
 using System.Collections.ObjectModel;
 
 namespace TicTacToeServer.MVVM.ViewModel
@@ -119,8 +114,6 @@ namespace TicTacToeServer.MVVM.ViewModel
                     _tcpClients.Add(returnedClient);
                     PlayerCount = _tcpClients.Count;
 
-
-
                     if (_tcpClients.Count == 1)
                     {
                         ReadPlayerData(returnedClient, _firstPlayer);
@@ -170,7 +163,9 @@ namespace TicTacToeServer.MVVM.ViewModel
 
                 if (count == 0)
                 {
+                    _tcpClients.Remove(client);
                     client.Close();
+                    PlayerCount--;
 
                     break;
                 }
