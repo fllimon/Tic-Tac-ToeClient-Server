@@ -11,6 +11,10 @@ using TicTacToe.GameLibrary.MVVM.ViewModel;
 using System.Threading.Tasks;
 using TicTacToe.GameLibrary.MVVM;
 using System.Collections.ObjectModel;
+using MahApps.Metro.Controls;
+using System.Linq;
+using System.Text;
+using TicTacToeServer.MVVM.Model;
 
 namespace TicTacToeServer.MVVM.ViewModel
 {
@@ -23,19 +27,20 @@ namespace TicTacToeServer.MVVM.ViewModel
         private const int SERVER_PORT = 24000;
         private TcpListener _serverSocket;
         private int _count = 0;
-        private List<TcpClient> _tcpClients = null;
-        private Player _firstPlayer = null;
-        private Player _secondPlayer = null;
+        private List<TcpClient> _clients = null;
+        private Dictionary<TcpClient, Player> _players;
+        private Player _first = null;
+        private Player _second = null;
         private GameField _gameField = null;
-        private char[] _buffer = null;
-
+        private byte[] _buff = null; 
+        private string _reciveData = string.Empty;
+        
         public Server()
         {
-            _tcpClients = new List<TcpClient>();
-            _firstPlayer = new Player();
-            _secondPlayer = new Player();
-            _buffer = new char[1024];
-
+            //_tcpClients = new List<ClientModel>(2);
+            _clients = new List<TcpClient>(2);
+            _players = new Dictionary<TcpClient,Player>();
+            
             Press = new Command(o =>
             {
                 IsPending = true;
@@ -46,14 +51,24 @@ namespace TicTacToeServer.MVVM.ViewModel
 
             Exit = new Command(o =>
             {
-                _serverSocket.Stop();
+                _clients.Clear();
+                _players.Clear();
 
-                _tcpClients.RemoveRange(0, _tcpClients.Count);
+                if (_buff != null)
+                {
+                    Array.Clear(_buff, 0, _buff.Length);    
+                }
+
+                if (_serverSocket != null)
+                {
+                    _serverSocket.Stop();
+                }
 
                 Environment.Exit(0);
             });
         }
 
+        #region ============ PROPERTIES ============================
         public bool IsPending 
         {
             get
@@ -92,7 +107,7 @@ namespace TicTacToeServer.MVVM.ViewModel
             {
                 _acceptText = value;
 
-                OnPropertyChanged(nameof(AcceptText));
+                OnPropertyChanged();
             }
         }
 
@@ -100,7 +115,9 @@ namespace TicTacToeServer.MVVM.ViewModel
 
         public ICommand Exit { get; set; }
 
-        public async Task StartServer()
+        #endregion
+
+        public void StartServer()
         {
             IPAddress ip = IPAddress.Any;
             _serverSocket = new TcpListener(ip, SERVER_PORT);
@@ -108,102 +125,189 @@ namespace TicTacToeServer.MVVM.ViewModel
             try
             {
                 _serverSocket.Start();
-                while (true)
+                _serverSocket.BeginAcceptTcpClient(OnAcceptClient, _serverSocket);
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+           
+        }
+
+        private void OnAcceptClient(IAsyncResult ar)
+        {
+            TcpListener listener = ar.AsyncState as TcpListener;
+
+            try
+            {
+                TcpClient client = listener.EndAcceptTcpClient(ar);
+                AcceptText = "Client connected...";
+
+                listener.BeginAcceptTcpClient(OnAcceptClient, listener);
+
+                lock (_clients)
                 {
-                    var returnedClient = await _serverSocket.AcceptTcpClientAsync();
-                    _tcpClients.Add(returnedClient);
-                    PlayerCount = _tcpClients.Count;
+                    _clients.Add(client);
+                    PlayerCount = _clients.Count;
+                }
 
-                    if (_tcpClients.Count == 1)
+                _buff = new byte[1024];
+                client.GetStream().BeginRead(_buff, 0, _buff.Length, OnCompleteReadData, client);
+
+            }
+            catch (Exception ex)
+            {
+                _serverSocket.Stop();
+            }
+        }
+
+        private void OnCompleteReadData(IAsyncResult ar)
+        {
+            TcpClient client = null;
+            int byteCount = 0;
+
+            try
+            {
+                lock (_clients)
+                {
+                    client = ar.AsyncState as TcpClient;
+
+                    byteCount = client.GetStream().EndRead(ar);
+
+                    if (byteCount == 0)
                     {
-                        ReadPlayerData(returnedClient, _firstPlayer);
+                        _clients.Remove(client);
+                        PlayerCount = _clients.Count;
+
+                        return;
                     }
 
-                    InitGameField();
+                    string data = Encoding.UTF8.GetString(_buff, 0, byteCount);
+                    Player player = JsonSerializer.Deserialize<Player>(data);
 
-                    if (_gameField != null)
-                    {
-                        SendGameFieldToServer(returnedClient, _gameField.Markers);
-                    }
+                    AcceptText = $"{player.Name} - {player.PlayerType}";
+
+                    _players.Add(client, player);
+
+                    _buff = new byte[1024];
+                    client.GetStream().BeginRead(_buff, 0, _buff.Length, OnCompleteReadData, client);
                 }
             }
-            catch (SocketException ex)
+            catch (Exception ex)
             {
+                lock (_clients)
+                {
+                    AcceptText = $"Client disconnected: {client.Client.RemoteEndPoint}";
+                    _clients.Remove(client);
+                    _players.Remove(client);
+                    PlayerCount = _clients.Count;
+                }
+            }
+        }
+
+        private void InitializePlayers()
+        {
+            if (_players.Count == 2)
+            {
+                _first = InitializePlayer(PlayerData.X);
+                _second = InitializePlayer(PlayerData.O);
+            }
+        }
+
+        private Player InitializePlayer(PlayerData type)
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                if (_players[_clients[i]].PlayerType == type)
+                {
+                    Player player = _players[_clients[i]];
+
+                    return player;
+                }
+            }
+
+            return new Player();
+        }
+
+        private void SendGameFieldToAllPlayers()
+        {
+            if(_gameField == null)
+            {
+                return;
+            }
+
+            foreach (var client in _clients)
+            {
+                if (client.Client.Connected)
+                {
+                    SendGameFieldToServer(client, _gameField.Markers);
+                }
+            }
+        }
+
+        private void SendGameFieldToServer(TcpClient client, ObservableCollection<Marker> data)
+        {
+            if (data == null)
+            {
+                return;
+            }
+
+            ClientModel model = null;
+
+            lock (_clients)
+            {
+                string serializeData = JsonSerializer.Serialize(data);
+
+                _buff = new byte[1024];
+                _buff = Encoding.ASCII.GetBytes(serializeData);
+
+                client.GetStream().BeginWrite(_buff, 0, _buff.Length, OnCompleteSendData, client);
+            }
+        }
+
+        private void OnCompleteSendData(IAsyncResult ar)
+        {
+            TcpClient client = null;
+
+            try
+            {
+                client = ar.AsyncState as TcpClient;
+                client.GetStream().EndWrite(ar);
+            }
+            catch (Exception ex)
+            {
+
                 throw;
             }
         }
 
-        public async Task WriteData(TcpClient client, object data)
+        private void InitGameField(Player first, Player second)
         {
-            if (data == null)
+            if (first == null)
             {
                 return;
             }
 
-            await JsonSerializer.SerializeAsync(client.GetStream(), data);
-        }
-
-        private async Task SendGameFieldToServer(TcpClient client, ObservableCollection<Marker> data)
-        {
-            if (data == null)
+            if (second == null)
             {
                 return;
             }
 
-            await JsonSerializer.SerializeAsync(client.GetStream(), data);
-        }
-
-        public async Task ReadPlayerData(TcpClient client, Player player)
-        {
-            StreamReader reader = new StreamReader(client.GetStream());
-           
-            while (true)
+            if (_clients.Count == 2)
             {
-                int count = await reader.ReadAsync(_buffer, 0, _buffer.Length);
-
-                if (count == 0)
-                {
-                    _tcpClients.Remove(client);
-                    client.Close();
-                    PlayerCount--;
-
-                    break;
-                }
-
-                string data = new string(_buffer,0, count);
-
-                player = JsonSerializer.Deserialize<Player>(data);
-
-                WriteLog(string.Format($"{player.Name} - {player.PlayerType}"));
-
-                AcceptText = player.ToString();
-                Array.Clear(_buffer, 0, count);
-            }
-        }
-
-        private void InitGameField()
-        {
-            if (_tcpClients.Count > 0)
-            {
-                _firstPlayer = new Player();
-                _secondPlayer = new Player();
-                _secondPlayer.PlayerType = PlayerData.X;
-                _secondPlayer.PlayerStatus = PlayerStatus.Await;
-
                 if (_gameField == null)
                 {
-                    _gameField = new GameField(_firstPlayer, _secondPlayer);
+                    _gameField = new GameField(first, second);
                 }
             }
         }
 
         public void WriteLog(string data)
         {
-            FileStream fs = new FileStream(DEFAULT_FILE_LOG, FileMode.OpenOrCreate);
-
-            using (StreamWriter wr = new StreamWriter(fs))
+            using (StreamWriter wr = new StreamWriter(DEFAULT_FILE_LOG, true))
             {
-                wr.WriteLine(data);
+                wr.WriteLine($"[LOG][{DateTime.Now}] - {data}");
             }
         }
     }

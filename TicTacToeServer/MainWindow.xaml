@@ -5,16 +5,21 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TicTacToeServer"
         WindowStyle="None"
+        ShowCloseButton="True"
         ResizeMode="NoResize"
         Background="Transparent"
         WindowStartupLocation="CenterScreen"
         mc:Ignorable="d"
-        Title="Tic-Tac-Toe Server" Height="600" Width="600">
+        Title="Tic-Tac-Toe Server" 
+        Height="600" 
+        Width="600"
+        Closing="MetroWindow_Closing">
     <Window.Resources>
         <local:BorderVisibilityConvertor x:Key="_brdConverter"/>
+        
     </Window.Resources>
-    <Grid Background="DarkCyan">
 
+    <Grid Background="DarkCyan">
         <Grid VerticalAlignment="Center" 
               HorizontalAlignment="Center">
             <StackPanel Orientation="Vertical">
@@ -49,11 +54,6 @@
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Bottom">
-                    <Button Content="Exit"
-                            FontSize="25"
-                            Style="{DynamicResource MahApps.Styles.Button}"
-                            Margin="20"
-                            Command="{Binding Exit}"/>
                 </StackPanel>
             </Grid>
         </Border>

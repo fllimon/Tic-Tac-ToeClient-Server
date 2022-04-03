@@ -13,8 +13,8 @@ namespace TicTacToe.GameLibrary.MVVM
         private const int DEFAULT_WIDTH = 3;
         private const int DEFAULT_HEIGHT = 3;
         private ObservableCollection<Marker> _markers;
-        private Player _playerOne;
-        private Player _playerTwo;
+        private Player _playerOne = null;
+        private Player _playerTwo = null;
         private int _steps;
         private bool _isWin = false;
 
@@ -22,11 +22,6 @@ namespace TicTacToe.GameLibrary.MVVM
         {
             _playerOne = playerOne;
             _playerTwo = playerTwo;
-            _playerOne.PlayerType = PlayerData.X;
-            _playerTwo.PlayerType = PlayerData.O;
-            _playerOne.PlayerStatus = PlayerStatus.Move;
-            _playerTwo.PlayerStatus = PlayerStatus.Await;
-
             _steps = 0;
             _markers = new ObservableCollection<Marker>();
 

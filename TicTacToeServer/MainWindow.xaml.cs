@@ -35,5 +35,10 @@ namespace TicTacToeServer
         {
             _startServer.Visibility = Visibility.Hidden;
         }
+
+        private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            _ = _server.Exit;
+        }
     }
 }
