@@ -31,11 +31,6 @@ namespace TicTacToeServer
             DataContext = _server;
         }
 
-        private void StartServerClick(object sender, RoutedEventArgs e)
-        {
-            _startServer.Visibility = Visibility.Hidden;
-        }
-
         private void Grid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.LeftButton == MouseButtonState.Pressed)

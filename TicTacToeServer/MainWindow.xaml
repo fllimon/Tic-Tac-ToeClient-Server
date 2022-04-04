@@ -16,7 +16,7 @@
         Width="800">
     
     <Window.Resources>
-        <local:BorderVisibilityConvertor x:Key="_brdConverter"/>
+        <local:BorderVisibilityConvertor x:Key="_visibilityCnv"/>
     </Window.Resources>
 
     <Grid Background="DarkCyan"
@@ -57,12 +57,13 @@
                             Height="80"
                             Width="180"
                             Style="{DynamicResource MahApps.Styles.Button}"
-                            Command="{Binding Press}"/>
+                            Command="{Binding Press}"
+                            Visibility="{Binding IsVisible, Converter={StaticResource _visibilityCnv}}"/>
             </StackPanel>
 
         </Grid>
         <Border Grid.Row="1" x:Name="_serverState" Background="#8000"
-                Visibility="{Binding IsPending, Converter={StaticResource _brdConverter}}">
+                Visibility="{Binding IsPending, Converter={StaticResource _visibilityCnv}}">
             <Grid>
                 <StackPanel HorizontalAlignment="Left">
                     <Label 

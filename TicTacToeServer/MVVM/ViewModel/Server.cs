@@ -23,6 +23,7 @@ namespace TicTacToeServer.MVVM.ViewModel
         private const int SERVER_PORT = 24000;
 
         private bool _isPending = false;
+        private bool _isVisible = true;
         private string _acceptText = "Server started... Avaliable connections!";
         private TcpListener _serverSocket;
         private int _count = 0;
@@ -40,6 +41,7 @@ namespace TicTacToeServer.MVVM.ViewModel
             
             Press = new Command(o =>
             {
+                IsVisible = false;
                 IsPending = true;
 
                 StartServer();
@@ -66,6 +68,21 @@ namespace TicTacToeServer.MVVM.ViewModel
         }
 
         #region ============ PROPERTIES ============================
+
+        public bool IsVisible
+        {
+            get
+            {
+                return _isVisible;
+            }
+            set
+            {
+                _isVisible = value;
+
+                OnPropertyChanged();
+            }
+        }
+
         public bool IsPending 
         {
             get
