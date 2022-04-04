@@ -35,5 +35,13 @@ namespace TicTacToeServer
         {
             _startServer.Visibility = Visibility.Hidden;
         }
+
+        private void Grid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                DragMove();
+            }
+        }
     }
 }

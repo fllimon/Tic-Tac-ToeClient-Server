@@ -19,7 +19,8 @@
         <local:BorderVisibilityConvertor x:Key="_brdConverter"/>
     </Window.Resources>
 
-    <Grid Background="DarkCyan">
+    <Grid Background="DarkCyan"
+          MouseLeftButtonDown="Grid_MouseLeftButtonDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="40"/>
             
@@ -39,8 +40,9 @@
         <StackPanel Grid.Row="0"
                     VerticalAlignment="Top"
                     HorizontalAlignment="Left">
-            <mah:Tile Width="250"
+            <mah:Tile Width="760"
                       Height="40"
+                      ClickMode="Hover"
                       Content="Tic-Tac-Toe Server"
                       FontSize="22"
                       FontWeight="Bold"
