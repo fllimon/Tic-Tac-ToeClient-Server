@@ -123,14 +123,6 @@ namespace TicTacToeServer.MVVM.ViewModel
             {
                 _serverSocket.Start();
                 _serverSocket.BeginAcceptTcpClient(OnAcceptClient, _serverSocket);
-
-                InitializePlayers();
-
-                if (_first != null && _second != null)
-                {
-                    InitGameField(_first, _second);
-                    SendGameFieldToAllPlayers();
-                }
             }
             catch (Exception ex)
             {
@@ -186,9 +178,11 @@ namespace TicTacToeServer.MVVM.ViewModel
 
                     if (byteCount == 0)
                     {
+                        AcceptText = $"Client disconnected: {client.Client.RemoteEndPoint}";
                         _clients.Remove(client);
+                        _players.Remove(client);
                         PlayerCount = _clients.Count;
-
+                        
                         return;
                     }
 
@@ -201,6 +195,17 @@ namespace TicTacToeServer.MVVM.ViewModel
 
                     _buff = new byte[1024];
                     client.GetStream().BeginRead(_buff, 0, _buff.Length, OnCompleteReadData, client);
+
+                    if (_clients.Count >= 2)
+                    {
+                        InitializePlayers();
+
+                        if (_first != null && _second != null)
+                        {
+                            InitGameField(_first, _second);
+                            SendGameFieldToAllPlayers();
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -267,7 +272,7 @@ namespace TicTacToeServer.MVVM.ViewModel
                 string serializeData = JsonSerializer.Serialize(data);
 
                 _buff = new byte[1024];
-                _buff = Encoding.ASCII.GetBytes(serializeData);
+                _buff = Encoding.UTF8.GetBytes(serializeData);
 
                 client.GetStream().BeginWrite(_buff, 0, _buff.Length, OnCompleteSendData, client);
             }
@@ -275,11 +280,9 @@ namespace TicTacToeServer.MVVM.ViewModel
 
         private void OnCompleteSendData(IAsyncResult ar)
         {
-            TcpClient client = null;
-
             try
             {
-                client = ar.AsyncState as TcpClient;
+                TcpClient client = ar.AsyncState as TcpClient;
                 client.GetStream().EndWrite(ar);
             }
             catch (Exception ex)
