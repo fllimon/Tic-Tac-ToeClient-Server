@@ -14,17 +14,16 @@ using System.Collections.ObjectModel;
 using MahApps.Metro.Controls;
 using System.Linq;
 using System.Text;
-using TicTacToeServer.MVVM.Model;
 
 namespace TicTacToeServer.MVVM.ViewModel
 {
     class Server : ClientServerViewModel
     {
         private const string DEFAULT_FILE_LOG = "../../log.txt";
+        private const int SERVER_PORT = 24000;
 
         private bool _isPending = false;
         private string _acceptText = "Server started... Avaliable connections!";
-        private const int SERVER_PORT = 24000;
         private TcpListener _serverSocket;
         private int _count = 0;
         private List<TcpClient> _clients = null;
@@ -33,11 +32,9 @@ namespace TicTacToeServer.MVVM.ViewModel
         private Player _second = null;
         private GameField _gameField = null;
         private byte[] _buff = null; 
-        private string _reciveData = string.Empty;
         
         public Server()
         {
-            //_tcpClients = new List<ClientModel>(2);
             _clients = new List<TcpClient>(2);
             _players = new Dictionary<TcpClient,Player>();
             
@@ -126,11 +123,23 @@ namespace TicTacToeServer.MVVM.ViewModel
             {
                 _serverSocket.Start();
                 _serverSocket.BeginAcceptTcpClient(OnAcceptClient, _serverSocket);
+
+                InitializePlayers();
+
+                if (_first != null && _second != null)
+                {
+                    InitGameField(_first, _second);
+                    SendGameFieldToAllPlayers();
+                }
             }
             catch (Exception ex)
             {
+                WriteLog(ex.Message);
 
-                throw;
+                _clients.Clear();
+                _players.Clear();
+                PlayerCount = 0;
+                _serverSocket.BeginAcceptTcpClient(OnAcceptClient, _serverSocket);
             }
            
         }
@@ -253,8 +262,6 @@ namespace TicTacToeServer.MVVM.ViewModel
                 return;
             }
 
-            ClientModel model = null;
-
             lock (_clients)
             {
                 string serializeData = JsonSerializer.Serialize(data);
@@ -284,16 +291,6 @@ namespace TicTacToeServer.MVVM.ViewModel
 
         private void InitGameField(Player first, Player second)
         {
-            if (first == null)
-            {
-                return;
-            }
-
-            if (second == null)
-            {
-                return;
-            }
-
             if (_clients.Count == 2)
             {
                 if (_gameField == null)
