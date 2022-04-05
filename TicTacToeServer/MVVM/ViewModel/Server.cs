@@ -14,6 +14,7 @@ using System.Collections.ObjectModel;
 using MahApps.Metro.Controls;
 using System.Linq;
 using System.Text;
+using TicTacToeServer.MVVM.Model;
 
 namespace TicTacToeServer.MVVM.ViewModel
 {
@@ -27,17 +28,21 @@ namespace TicTacToeServer.MVVM.ViewModel
         private string _acceptText = "Server started... Avaliable connections!";
         private TcpListener _serverSocket;
         private int _count = 0;
-        private List<TcpClient> _clients = null;
+        private int _updateStep = 0;
+        private List<ClientModel> _clients = null;
         private Dictionary<TcpClient, Player> _players;
         private Player _first = null;
         private Player _second = null;
         private GameField _gameField = null;
-        private byte[] _buff = null; 
+        private byte[] _bufferSend = null;
+        private byte[] _bufferRecive = null;
         
         public Server()
         {
-            _clients = new List<TcpClient>(2);
+            _clients = new List<ClientModel>(2);
             _players = new Dictionary<TcpClient,Player>();
+            _bufferRecive = new byte[1024];
+            _bufferSend = new byte[1024];
             
             Press = new Command(o =>
             {
@@ -53,9 +58,14 @@ namespace TicTacToeServer.MVVM.ViewModel
                 _clients.Clear();
                 _players.Clear();
 
-                if (_buff != null)
+                if (_bufferSend != null)
                 {
-                    Array.Clear(_buff, 0, _buff.Length);    
+                    Array.Clear(_bufferSend, 0, _bufferSend.Length);    
+                }
+
+                if (_bufferRecive != null)
+                {
+                    Array.Clear(_bufferRecive, 0, _bufferRecive.Length);
                 }
 
                 if (_serverSocket != null)
@@ -156,6 +166,7 @@ namespace TicTacToeServer.MVVM.ViewModel
         private void OnAcceptClient(IAsyncResult ar)
         {
             TcpListener listener = ar.AsyncState as TcpListener;
+            ClientModel model = null;
 
             try
             {
@@ -166,13 +177,11 @@ namespace TicTacToeServer.MVVM.ViewModel
 
                 lock (_clients)
                 {
-                    _clients.Add(client);
+                    _clients.Add(model = new ClientModel { Client = client, ClientId = client.Client.RemoteEndPoint.ToString(), Recive = new byte[1024], Send = new byte[1024]});
                     PlayerCount = _clients.Count;
                 }
 
-                _buff = new byte[1024];
-                client.GetStream().BeginRead(_buff, 0, _buff.Length, OnCompleteReadData, client);
-
+                client.GetStream().BeginRead(model.Recive, 0, model.Recive.Length, OnCompleteReadData, client);
             }
             catch (Exception ex)
             {
@@ -183,36 +192,50 @@ namespace TicTacToeServer.MVVM.ViewModel
         private void OnCompleteReadData(IAsyncResult ar)
         {
             TcpClient client = null;
+            ClientModel model = null;
             int byteCount = 0;
-
+            
             try
             {
                 lock (_clients)
                 {
                     client = ar.AsyncState as TcpClient;
+                    model = _clients.Find(x => x.ClientId == client.Client.RemoteEndPoint.ToString());
 
                     byteCount = client.GetStream().EndRead(ar);
 
                     if (byteCount == 0)
                     {
-                        AcceptText = $"Client disconnected: {client.Client.RemoteEndPoint}";
-                        _clients.Remove(client);
-                        _players.Remove(client);
+                        WriteLog($"Player - {_players.GetValueOrDefault(model.Client).PlayerType} has disconnected! {model.ClientId}");
+                        _clients.Remove(model);
+                        AcceptText = $"Player - {_players.GetValueOrDefault(model.Client).PlayerType} has disconnected!";
+                        _players.Remove(model.Client);
                         PlayerCount = _clients.Count;
-                        
+
                         return;
                     }
 
-                    string data = Encoding.UTF8.GetString(_buff, 0, byteCount);
-                    Player player = JsonSerializer.Deserialize<Player>(data);
+                    string data = Encoding.UTF8.GetString(model.Recive, 0, byteCount);
+                    DeserializePlayerData(model, data);
 
-                    AcceptText = $"{player.Name} - {player.PlayerType}";
+                    if (_updateStep > 0)
+                    {
+                        SendDataToClient(model, _gameField.Markers);
 
-                    _players.Add(client, player);
+                        _players[model.Client] = _players[model.Client].PlayerType == PlayerData.X ? _gameField.PlayerOne : _gameField.PlayerTwo;
+                        SendDataToClient(model, _players[model.Client]);
 
-                    _buff = new byte[1024];
-                    client.GetStream().BeginRead(_buff, 0, _buff.Length, OnCompleteReadData, client);
 
+                        SendPlayerDataToOther(_players[model.Client]);
+                        SendGameFieldToOther(model);
+                    }
+
+                    model.Recive = new byte[1024];
+                    model.Client.GetStream().BeginRead(model.Recive, 0, model.Recive.Length, OnCompleteReadData, model.Client);
+                }
+
+                if (_gameField == null)
+                {
                     if (_clients.Count >= 2)
                     {
                         InitializePlayers();
@@ -220,7 +243,7 @@ namespace TicTacToeServer.MVVM.ViewModel
                         if (_first != null && _second != null)
                         {
                             InitGameField(_first, _second);
-                            SendGameFieldToAllPlayers();
+                            SendGameFieldToAll();
                         }
                     }
                 }
@@ -229,11 +252,50 @@ namespace TicTacToeServer.MVVM.ViewModel
             {
                 lock (_clients)
                 {
-                    AcceptText = $"Client disconnected: {client.Client.RemoteEndPoint}";
-                    _clients.Remove(client);
-                    _players.Remove(client);
+                    AcceptText = $"Client disconnected: {model.Client.Client.RemoteEndPoint}";
+                    _clients.Remove(model);
+                    _players.Remove(model.Client);
                     PlayerCount = _clients.Count;
                 }
+            }
+        }
+
+        private void DeserializePlayerData(ClientModel model, string data)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(data))
+                {
+                    if (data.Contains("PlayerMarker"))
+                    {
+                        UpdateMarkerInGameField(data);
+                    }
+                    else
+                    {
+                        Player player = JsonSerializer.Deserialize<Player>(data);
+
+                        if (player != null)
+                        {
+                            AcceptText = $"{player.Name} - {player.PlayerType}";
+                            _players.Add(model.Client, player);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog(ex.Message);
+            }
+        }
+
+        private void UpdateMarkerInGameField(string data)
+        {
+            Marker marker = JsonSerializer.Deserialize<Marker>(data);
+            
+            if (marker != null)
+            {
+                _gameField.PlayerChoise(marker);
+                _updateStep++;
             }
         }
 
@@ -250,9 +312,9 @@ namespace TicTacToeServer.MVVM.ViewModel
         {
             for (int i = 0; i < _players.Count; i++)
             {
-                if (_players[_clients[i]].PlayerType == type)
+                if (_players[_clients[i].Client].PlayerType == type)
                 {
-                    Player player = _players[_clients[i]];
+                    Player player = _players[_clients[i].Client];
 
                     return player;
                 }
@@ -261,38 +323,56 @@ namespace TicTacToeServer.MVVM.ViewModel
             return new Player();
         }
 
-        private void SendGameFieldToAllPlayers()
+        private void SendGameFieldToAll()
         {
             if(_gameField == null)
             {
                 return;
             }
 
-            foreach (var client in _clients)
+            for (int i = 0; i < _clients.Count; i++)
             {
-                if (client.Client.Connected)
+                if (_clients[i].Client.Connected)
                 {
-                    SendGameFieldToServer(client, _gameField.Markers);
+                    SendDataToClient(_clients[i], _gameField.Markers);
                 }
             }
         }
 
-        private void SendGameFieldToServer(TcpClient client, ObservableCollection<Marker> data)
+        private void SendPlayerDataToOther(Player player)
+        {
+            for (int i = 0; i < _clients.Count; i++)
+            {
+                if (_players[_clients[i].Client].PlayerType != player.PlayerType)
+                {
+                    SendDataToClient(_clients[i], _players[_clients[i].Client]);
+                }
+            }
+        }
+
+        private void SendGameFieldToOther(ClientModel model)
+        {
+            for (int i = 0; i < _clients.Count; i++)
+            {
+                if (_clients[i].ClientId != model.ClientId)
+                {
+                    SendDataToClient(_clients[i], _gameField.Markers);
+                }
+            }
+        }
+
+        private void SendDataToClient(ClientModel model, object data)
         {
             if (data == null)
             {
                 return;
             }
 
-            lock (_clients)
-            {
-                string serializeData = JsonSerializer.Serialize(data);
+            string serializeData = JsonSerializer.Serialize(data);
 
-                _buff = new byte[1024];
-                _buff = Encoding.UTF8.GetBytes(serializeData);
-
-                client.GetStream().BeginWrite(_buff, 0, _buff.Length, OnCompleteSendData, client);
-            }
+            model.Send = new byte[1024];
+            model.Send = Encoding.UTF8.GetBytes(serializeData);
+            model.Client.GetStream().BeginWrite(model.Send, 0, model.Send.Length, OnCompleteSendData, model.Client);
         }
 
         private void OnCompleteSendData(IAsyncResult ar)

@@ -7,43 +7,13 @@ using TicTacToe.GameLibrary.MVVM.ViewModel;
 
 namespace TicTacToe.GameLibrary.MVVM.Model
 {
-    [Serializable]
     public class Marker : ClientServerViewModel
     {
-        private int _x;
-        private int _y;
         private PlayerData _playerMarker;
 
-        public Marker(int x, int y, PlayerData data)
-        {
-            _x = x;
-            _y = y;
-            _playerMarker = data;
-        }
+        public int X { get; set; }
 
-        public int X
-        {
-            get
-            {
-                return _x;
-            }
-            set
-            {
-                _x = value;
-            }
-        }
-
-        public int Y
-        {
-            get
-            {
-                return _y;
-            }
-            set
-            {
-                _y = value;
-            }
-        }
+        public int Y { get; set; }
 
         public PlayerData PlayerMarker
         {

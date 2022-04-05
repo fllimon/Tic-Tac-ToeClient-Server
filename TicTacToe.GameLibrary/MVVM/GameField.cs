@@ -26,23 +26,20 @@ namespace TicTacToe.GameLibrary.MVVM
             _markers = new ObservableCollection<Marker>();
 
             InitializeGameField();
-
-            Press = new Command.Command(o =>
-            {
-                Marker current = (Marker)o;
-
-                PlayerChoise(current);
-            });
-
-            Exit = new Command.Command(o =>
-            {
-                Environment.Exit(0);
-            });
         }
 
-        public ICommand Press { get; set; }
+        public Player PlayerOne
+        {
+            get { return _playerOne; }
+        }
 
-        public ICommand Exit { get; set; }
+        public Player PlayerTwo
+        { 
+            get 
+            { 
+                return _playerTwo; 
+            } 
+        }
 
         public ObservableCollection<Marker> Markers
         {
@@ -71,45 +68,51 @@ namespace TicTacToe.GameLibrary.MVVM
             {
                 for (int j = 0; j < DEFAULT_HEIGHT; j++)
                 {
-                    _markers.Add(new Marker(i * 170, j * 170, PlayerData.Empty));
+                    _markers.Add(new Marker { X = i * 170, Y = j * 170, PlayerMarker = PlayerData.Empty });
                 }
             }
 
             OnPropertyChanged(nameof(Markers));
         }
 
-        private void PlayerChoise(Marker marker)
+        public void PlayerChoise(Marker marker)
         {
-            Player playerX = GetPlayerXOrO(_playerOne, _playerTwo, PlayerData.X);
-            Player player0 = GetPlayerXOrO(_playerOne, _playerTwo, PlayerData.O);
-
             if (marker.PlayerMarker == PlayerData.Empty)
             {
-                PlayerChoise(marker, playerX, player0);
+                PlayerChoise(marker, _playerOne, _playerTwo);
             }
         }
 
-        private void PlayerChoise(Marker marker, Player playerX, Player player0)
+        private void PlayerChoise(Marker marker, Player first, Player second)
         {
             if (IsFirstChoise(marker))
             {
-                ChangeMarker(marker, playerX);
-                playerX.PlayerStatus = PlayerStatus.Await;
-                player0.PlayerStatus = PlayerStatus.Move;
-            }
-            else
-            {
-                if (playerX.PlayerStatus == PlayerStatus.Move)
+                if (first.PlayerType == PlayerData.X)
                 {
-                    ChangeMarker(marker, playerX);
-                    playerX.PlayerStatus = PlayerStatus.Await;
-                    player0.PlayerStatus = PlayerStatus.Move;
+                    ChangeMarker(marker, first);
+                    first.PlayerStatus = PlayerStatus.Await;
+                    second.PlayerStatus = PlayerStatus.Move;
                 }
                 else
                 {
-                    ChangeMarker(marker, player0);
-                    player0.PlayerStatus = PlayerStatus.Await;
-                    playerX.PlayerStatus = PlayerStatus.Move;
+                    ChangeMarker(marker, second);
+                    second.PlayerStatus = PlayerStatus.Await;
+                    second.PlayerStatus = PlayerStatus.Move;
+                }
+            }
+            else
+            {
+                if (first.PlayerStatus == PlayerStatus.Move)
+                {
+                    ChangeMarker(marker, first);
+                    first.PlayerStatus = PlayerStatus.Await;
+                    second.PlayerStatus = PlayerStatus.Move;
+                }
+                else
+                {
+                    ChangeMarker(marker, second);
+                    second.PlayerStatus = PlayerStatus.Await;
+                    first.PlayerStatus = PlayerStatus.Move;
                 }
             }
         }
@@ -127,27 +130,30 @@ namespace TicTacToe.GameLibrary.MVVM
             return isFirstChoise;
         }
 
-        private Player GetPlayerXOrO(Player playerOne, Player playerTwo, PlayerData type)
-        {
-            if (playerOne.PlayerType == type)
-            {
-                return playerOne;
-            }
-            else
-            {
-                return playerTwo;
-            }
-        }
-
         private void ChangeMarker(Marker marker, Player player)
         {
-            foreach (Marker item in Markers)
+            for (int i = 0; i < Markers.Count; i++)
             {
-                if (item.Equals(marker))
+                if ((Markers[i].X == marker.X) &&
+                    (Markers[i].Y == marker.Y) &&
+                    (Markers[i].PlayerMarker == PlayerData.Empty))
                 {
-                    item.PlayerMarker = player.PlayerType;
+                    Markers[i].PlayerMarker = player.PlayerType;
+
+                    return;
                 }
             }
+            //foreach (Marker item in Markers)
+            //{
+            //    if ((item.X == marker.X) && 
+            //        (item.Y == marker.Y) &&
+            //        (item.PlayerMarker == PlayerData.Empty))
+            //    {
+            //        item.PlayerMarker = player.PlayerType;
+
+            //        return;
+            //    }
+            //}
         }
     }
 }
